@@ -40,7 +40,17 @@ document.getElementById("coordinate-display").style.display = isMobile()
 
 // pathPoints 存储的是 WGS-84 坐标，newPoints 存储的是 GCJ-02 坐标
 const displayPoints = pathPoints;
-const allPoints = [...pathPoints, ...newPoints];
+
+// 将 newPoints 的 GCJ-02 坐标预转换为 WGS-84，存为 _lat/_lng 供地图使用
+const convertor = L.coordConvertor();
+const newPointsConverted = newPoints.map((p) => {
+  const wgs = convertor.gcj02_To_gps84(p.lng, p.lat);
+  return { ...p, _lat: wgs.lat, _lng: wgs.lng };
+});
+const allPoints = [
+  ...pathPoints.map((p) => ({ ...p, _lat: p.lat, _lng: p.lng })),
+  ...newPointsConverted,
+];
 
 // 全局轮播计数器，用于给每个弹窗轮播图分配唯一ID
 let popupCarouselCounter = 0;
@@ -158,10 +168,12 @@ document.addEventListener(
   true,
 ); // 使用捕获阶段，确保在 Leaflet 阻止冒泡之前拦截
 
-// 添加标记点
+// 添加标记点（使用预转换后的 _lat/_lng）
 function addPointMarkers(points) {
   points.forEach(function (point) {
-    let marker = L.marker([point.lat, point.lng], {
+    const lat = point._lat;
+    const lng = point._lng;
+    let marker = L.marker([lat, lng], {
       icon: pathPointIcon,
     }).addTo(map);
     let popupContent = buildPopupContent(point);
@@ -174,7 +186,7 @@ function addPointMarkers(points) {
       .openPopup()
       .closePopup();
     marker.on("click", function () {
-      map.setView([point.lat, point.lng], map.getZoom(), {
+      map.setView([lat, lng], map.getZoom(), {
         animate: true,
         duration: 0.5,
       });
@@ -182,13 +194,12 @@ function addPointMarkers(points) {
     });
 
     // 存储marker到全局对象
-    const key = `${point.lat},${point.lng}`;
+    const key = `${lat},${lng}`;
     window.markersMap[key] = marker;
   });
 }
 
-addPointMarkers(pathPoints);
-addPointMarkers(newPoints);
+addPointMarkers(allPoints);
 
 map.setView([INITIAL_LAT, INITIAL_LNG], 5);
 let nav = document.querySelector("#location-nav");
@@ -220,7 +231,7 @@ function updateSidebar(points) {
   sidebarList.innerHTML = points
     .map(
       (point) => `
-        <li data-lat="${point.lat}" data-lng="${point.lng}">
+        <li data-lat="${point._lat}" data-lng="${point._lng}">
             ${point.title}
         </li>
     `,
@@ -232,9 +243,14 @@ function updateSidebar(points) {
       let lat = parseFloat(this.getAttribute("data-lat"));
       let lng = parseFloat(this.getAttribute("data-lng"));
       map.closePopup();
-      map.setView([lat, lng], DEFAULT_ZOOM);
-      // 打开该景点的详情弹窗
-      openPopupByCoords(lat, lng);
+      map.setView([lat, lng], DEFAULT_ZOOM, {
+        animate: true,
+        duration: 0.5,
+      });
+      // 等动画结束后再打开弹窗，避免 autoPan 导致不居中
+      map.once("moveend", function () {
+        openPopupByCoords(lat, lng);
+      });
     });
   });
 }
@@ -342,12 +358,12 @@ class Carousel {
     }
   }
 
-  // 获取随机的4个景点（仅从 newPoints 中取）
+  // 获取随机的4个景点（仅从 newPoints 中取，使用已转换坐标的版本）
   getRandomPoints(num = 4) {
-    if (newPoints.length === 0) return [];
+    if (newPointsConverted.length === 0) return [];
 
-    const shuffled = [...newPoints].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(num, newPoints.length));
+    const shuffled = [...newPointsConverted].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(num, newPointsConverted.length));
   }
 
   // 更新轮播图数据
@@ -370,7 +386,7 @@ class Carousel {
         return `
             <div class="carousel-slide ${index === 0 ? "active" : ""}">
                 <img src="${imgSrc}" alt="${point.title}" class="carousel-image" onerror="this.onerror=null;this.src='img/mark1.png';" />
-                <div class="carousel-title" data-lat="${point.lat}" data-lng="${point.lng}">${point.title}</div>
+                <div class="carousel-title" data-lat="${point._lat}" data-lng="${point._lng}">${point.title}</div>
             </div>
           `;
       })
@@ -401,9 +417,14 @@ class Carousel {
         const lat = parseFloat(title.getAttribute("data-lat"));
         const lng = parseFloat(title.getAttribute("data-lng"));
         map.closePopup();
-        map.setView([lat, lng], DEFAULT_ZOOM);
-        // 打开该景点的详情弹窗
-        openPopupByCoords(lat, lng);
+        map.setView([lat, lng], DEFAULT_ZOOM, {
+          animate: true,
+          duration: 0.5,
+        });
+        // 等动画结束后再打开弹窗，避免 autoPan 导致不居中
+        map.once("moveend", function () {
+          openPopupByCoords(lat, lng);
+        });
       }
     };
     this.track.addEventListener("click", this.handleTitleClick);
