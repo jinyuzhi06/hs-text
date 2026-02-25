@@ -1,6 +1,7 @@
 import { map } from "./map.js";
 import { pathPointIcon } from "./icon.js";
 import { pathPoints } from "./pathPoints.js";
+import { newPoints } from "./newPoints.js";
 import { searchRedSitesNow } from "./redSites.js"; // 引入红色景点搜索功能
 
 // 创建全局markers对象用于存储所有标记
@@ -37,52 +38,170 @@ document.getElementById("coordinate-display").style.display = isMobile()
   ? "none"
   : "block";
 
-// pathPoints 现在存储的是 WGS-84 坐标，直接使用
+// pathPoints 存储的是 WGS-84 坐标，newPoints 存储的是 GCJ-02 坐标
 const displayPoints = pathPoints;
+const allPoints = [...pathPoints, ...newPoints];
 
-displayPoints.forEach(function (point) {
-  let marker = L.marker([point.lat, point.lng], { icon: pathPointIcon }).addTo(
-    map,
+// 全局轮播计数器，用于给每个弹窗轮播图分配唯一ID
+let popupCarouselCounter = 0;
+
+/**
+ * 生成弹窗内容 HTML
+ * - 单张图片（image 字段）：直接显示图片
+ * - 多张图片（images 数组）：显示轮播图
+ */
+function buildPopupContent(point) {
+  const title = `<b>${point.title}</b><br>`;
+  const desc = `<p class="site-intro">${point.content || "这是" + point.title}</p><br>`;
+
+  // 多张图片 → 轮播图
+  if (point.images && point.images.length > 1) {
+    const cid = `pc-${popupCarouselCounter++}`;
+    const slides = point.images
+      .map(
+        (src) =>
+          `<div class="popup-carousel-slide"><img src="${src}" alt="${point.title}" onerror="this.onerror=null;this.src='img/mark1.png';" /></div>`,
+      )
+      .join("");
+    const dots = point.images
+      .map(
+        (_, i) =>
+          `<button class="popup-carousel-dot${i === 0 ? " active" : ""}" data-cid="${cid}" data-index="${i}"></button>`,
+      )
+      .join("");
+
+    const carousel = `
+      <div class="popup-carousel" data-cid="${cid}" data-total="${point.images.length}" data-current="0">
+        <div class="popup-carousel-track" style="transform:translateX(0%)">
+          ${slides}
+        </div>
+        <button class="popup-carousel-btn popup-carousel-prev" data-cid="${cid}">‹</button>
+        <button class="popup-carousel-btn popup-carousel-next" data-cid="${cid}">›</button>
+      </div>
+      <div class="popup-carousel-dots">${dots}</div>
+      <div class="popup-carousel-counter" data-cid="${cid}">1 / ${point.images.length}</div>
+    `;
+    return title + carousel + desc;
+  }
+
+  // 单张图片（images 只含1张时也走这里）
+  const imgSrc =
+    point.image || (point.images && point.images[0]) || "img/mark1.png";
+  return `${title}<img src="${imgSrc}" alt="${point.title}" style="width:100%;" onerror="this.onerror=null;this.src='img/mark1.png';"><br>${desc}`;
+}
+
+/**
+ * 弹窗轮播图：滑动到第 index 张
+ */
+function popupCarouselGoTo(cid, index) {
+  const container = document.querySelector(
+    `.popup-carousel[data-cid="${cid}"]`,
   );
-  let popupContent = `
-            <b>${point.title}</b><br>
-            <img src="${point.image}" alt="${point.title}" style="width:100%;" onerror="this.onerror=null;this.src='img/mark1.png';"><br>
-            <p class=\"site-intro\">${point.content || "这是" + point.title}</p><br>
-        `;
-  marker
-    .bindPopup(popupContent, {
-      maxWidth: Math.min(300, window.innerWidth - 100),
-      maxHeight: window.innerHeight - 200,
-      autoPanPadding: [50, 100],
-    })
-    .openPopup()
-    .closePopup();
-  marker.on("click", function () {
-    map.setView([point.lat, point.lng], map.getZoom(), {
-      animate: true,
-      duration: 0.5,
+  if (!container) return;
+  const total = parseInt(container.dataset.total);
+  if (index < 0) index = total - 1;
+  if (index >= total) index = 0;
+  container.dataset.current = index;
+
+  const track = container.querySelector(".popup-carousel-track");
+  track.style.transform = `translateX(-${index * 100}%)`;
+
+  // 更新 dots
+  document
+    .querySelectorAll(`.popup-carousel-dot[data-cid="${cid}"]`)
+    .forEach((dot) => {
+      dot.classList.toggle("active", parseInt(dot.dataset.index) === index);
     });
 
-    marker.openPopup();
-  });
+  // 更新计数器
+  const counter = document.querySelector(
+    `.popup-carousel-counter[data-cid="${cid}"]`,
+  );
+  if (counter) counter.textContent = `${index + 1} / ${total}`;
+}
 
-  // 存储marker到全局对象
-  const key = `${point.lat},${point.lng}`;
-  window.markersMap[key] = marker;
-});
+// 使用事件委托在 document 级别监听轮播图按钮的点击（避免 Leaflet 弹窗事件干扰）
+document.addEventListener(
+  "click",
+  function (e) {
+    // 左右箭头
+    const prevBtn = e.target.closest(".popup-carousel-prev");
+    if (prevBtn) {
+      e.stopPropagation();
+      const cid = prevBtn.dataset.cid;
+      const container = document.querySelector(
+        `.popup-carousel[data-cid="${cid}"]`,
+      );
+      if (container)
+        popupCarouselGoTo(cid, parseInt(container.dataset.current) - 1);
+      return;
+    }
+    const nextBtn = e.target.closest(".popup-carousel-next");
+    if (nextBtn) {
+      e.stopPropagation();
+      const cid = nextBtn.dataset.cid;
+      const container = document.querySelector(
+        `.popup-carousel[data-cid="${cid}"]`,
+      );
+      if (container)
+        popupCarouselGoTo(cid, parseInt(container.dataset.current) + 1);
+      return;
+    }
+    // dot 点击
+    const dot = e.target.closest(".popup-carousel-dot");
+    if (dot) {
+      e.stopPropagation();
+      popupCarouselGoTo(dot.dataset.cid, parseInt(dot.dataset.index));
+      return;
+    }
+  },
+  true,
+); // 使用捕获阶段，确保在 Leaflet 阻止冒泡之前拦截
+
+// 添加标记点
+function addPointMarkers(points) {
+  points.forEach(function (point) {
+    let marker = L.marker([point.lat, point.lng], {
+      icon: pathPointIcon,
+    }).addTo(map);
+    let popupContent = buildPopupContent(point);
+    marker
+      .bindPopup(popupContent, {
+        maxWidth: Math.min(300, window.innerWidth - 100),
+        maxHeight: window.innerHeight - 200,
+        autoPanPadding: [50, 100],
+      })
+      .openPopup()
+      .closePopup();
+    marker.on("click", function () {
+      map.setView([point.lat, point.lng], map.getZoom(), {
+        animate: true,
+        duration: 0.5,
+      });
+      marker.openPopup();
+    });
+
+    // 存储marker到全局对象
+    const key = `${point.lat},${point.lng}`;
+    window.markersMap[key] = marker;
+  });
+}
+
+addPointMarkers(pathPoints);
+addPointMarkers(newPoints);
 
 map.setView([INITIAL_LAT, INITIAL_LNG], 5);
 let nav = document.querySelector("#location-nav");
 
 let province = [];
-for (let i = 0; i < displayPoints.length; i++) {
-  if (!province.includes(displayPoints[i].location)) {
-    province.push(displayPoints[i].location);
+for (let i = 0; i < allPoints.length; i++) {
+  if (!province.includes(allPoints[i].location)) {
+    province.push(allPoints[i].location);
   }
 }
 province.sort((a, b) => a.localeCompare(b));
 
-updateSidebar(displayPoints.filter((point) => point.location === province[0]));
+updateSidebar(allPoints.filter((point) => point.location === province[0]));
 console.log(province);
 nav.innerHTML = province
   .map(
@@ -93,7 +212,7 @@ nav.innerHTML = province
   .join("");
 
 nav.onchange = function () {
-  updateSidebar(displayPoints.filter((point) => point.location === this.value));
+  updateSidebar(allPoints.filter((point) => point.location === this.value));
 };
 
 function updateSidebar(points) {
@@ -225,10 +344,10 @@ class Carousel {
 
   // 获取随机的4个景点
   getRandomPoints(num = 4) {
-    if (pathPoints.length === 0) return [];
+    if (allPoints.length === 0) return [];
 
-    const shuffled = [...pathPoints].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(num, pathPoints.length));
+    const shuffled = [...allPoints].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(num, allPoints.length));
   }
 
   // 更新轮播图数据
@@ -245,14 +364,16 @@ class Carousel {
   // 渲染幻灯片
   renderSlides() {
     this.track.innerHTML = this.carouselData
-      .map(
-        (point, index) => `
+      .map((point, index) => {
+        const imgSrc =
+          point.image || (point.images && point.images[0]) || "img/mark1.png";
+        return `
             <div class="carousel-slide ${index === 0 ? "active" : ""}">
-                <img src="${point.image}" alt="${point.title}" class="carousel-image" onerror="this.onerror=null;this.src='img/mark1.png';" />
+                <img src="${imgSrc}" alt="${point.title}" class="carousel-image" onerror="this.onerror=null;this.src='img/mark1.png';" />
                 <div class="carousel-title" data-lat="${point.lat}" data-lng="${point.lng}">${point.title}</div>
             </div>
-        `,
-      )
+          `;
+      })
       .join("");
 
     // 为所有标题添加鼠标事件
