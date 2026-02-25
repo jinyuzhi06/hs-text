@@ -342,12 +342,12 @@ class Carousel {
     }
   }
 
-  // 获取随机的4个景点
+  // 获取随机的4个景点（仅从 newPoints 中取）
   getRandomPoints(num = 4) {
-    if (allPoints.length === 0) return [];
+    if (newPoints.length === 0) return [];
 
-    const shuffled = [...allPoints].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(num, allPoints.length));
+    const shuffled = [...newPoints].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(num, newPoints.length));
   }
 
   // 更新轮播图数据
