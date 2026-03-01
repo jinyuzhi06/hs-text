@@ -1,6 +1,7 @@
 import { map } from "./map.js";
 import { toGcj02FromWgs84, toWgs84FromGcj02 } from "./coord.js";
 import { pathPoints } from "./pathPoints.js";
+import { newPoints } from "./newPoints.js";
 
 // 用于存储当前显示的红色景点标记
 let redSiteMarkers = [];
@@ -25,7 +26,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
-// 检查景点是否与 pathPoints 重复
+// 检查景点是否与 pathPoints 或 newPoints 重复
 function isDuplicatePoint(name, lat, lng) {
   // 检查名称是否相似或距离是否很近
   for (const point of pathPoints) {
@@ -39,6 +40,27 @@ function isDuplicatePoint(name, lat, lng) {
       return true;
     }
   }
+
+  // 检查与 newPoints 是否重复（注意newPoints是GCJ-02坐标，需要转换坐标后比较）
+  // lat, lng 是 WGS-84 坐标，先转换为 GCJ-02 以便与 newPoints 比较
+  const gcjPoint = toGcj02FromWgs84(lat, lng);
+  for (const point of newPoints) {
+    // 名称包含关系检查
+    if (point.title.includes(name) || name.includes(point.title)) {
+      return true;
+    }
+    // 距离检查
+    const distance = calculateDistance(
+      gcjPoint.lat,
+      gcjPoint.lng,
+      point.lat,
+      point.lng,
+    );
+    if (distance < 200) {
+      return true;
+    }
+  }
+
   return false;
 }
 

@@ -212,6 +212,14 @@ for (let i = 0; i < allPoints.length; i++) {
 }
 province.sort((a, b) => a.localeCompare(b));
 
+// 将默认省份设置为福建
+const defaultProvince = "福建";
+const defaultIndex = province.indexOf(defaultProvince);
+if (defaultIndex > -1) {
+  province.splice(defaultIndex, 1);
+  province.unshift(defaultProvince);
+}
+
 updateSidebar(allPoints.filter((point) => point.location === province[0]));
 console.log(province);
 nav.innerHTML = province
