@@ -45,7 +45,7 @@ const displayPoints = pathPoints;
 const convertor = L.coordConvertor();
 const newPointsConverted = newPoints.map((p) => {
   const wgs = convertor.gcj02_To_gps84(p.lng, p.lat);
-  return { ...p, _lat: wgs.lat, _lng: wgs.lng };
+  return { ...p, _lat: wgs.lat, _lng: wgs.lng, isNew: true };
 });
 const allPoints = [
   ...pathPoints.map((p) => ({ ...p, _lat: p.lat, _lng: p.lng })),
@@ -240,7 +240,7 @@ function updateSidebar(points) {
     .map(
       (point) => `
         <li data-lat="${point._lat}" data-lng="${point._lng}">
-            ${point.title}
+            ${point.title}${point.isNew ? " (2026寒假) <span style='color: gold;'>★</span>" : ""}
         </li>
     `,
     )
