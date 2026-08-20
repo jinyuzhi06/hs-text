@@ -24,6 +24,12 @@
   </head>
 
   <body>
+    <!-- =========新增搜索框UI========= -->
+    <div style="position:absolute; z-index:999; top:12px; left:12px; background:#ffffff; padding:8px; border-radius:6px; box-shadow:0 1px 6px #aaa;">
+      <input id="searchInput" placeholder="搜索红色景点，例：乌兰夫纪念馆" onkeydown="if(event.key==='Enter')searchPlace()" style="width:240px;padding:5px;border:1px solid #ccc;border-radius:4px;">
+      <button onclick="searchPlace()" style="padding:5px 10px;cursor:pointer;">搜索定位</button>
+    </div>
+
     <div id="map"></div>
     <div id="coordinate-display">经纬度: <span id="coordinates">-</span></div>
     <div id="nearest-points">
@@ -59,6 +65,58 @@
       </div>
     </div>
 
+    <!-- =========新增搜索功能JS全局脚本========= -->
+    <script>
+      let searchMarker = null;
+      let map;
+
+      // 等待地图对象完成初始化之后，再添加自定义标记
+      function waitMapInit(cb) {
+        const timer = setInterval(()=>{
+          if(window.mapInstance){
+            map = window.mapInstance;
+            clearInterval(timer);
+            cb();
+          }
+        },200);
+      }
+
+      // 搜索定位函数（全局，给onclick调用）
+      async function searchPlace(){
+        if(!map){
+          alert("地图尚未加载完成，请稍后再试");
+          return;
+        }
+        const name = document.getElementById("searchInput").value.trim();
+        if(!name){
+          alert("请输入景点名称");
+          return;
+        }
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1&countrycodes=cn`;
+        const resp = await fetch(url);
+        const result = await resp.json();
+        if(result.length <= 0){
+          alert("未找到该地点，可手动添加标记");
+          return;
+        }
+        const lat = Number(result[0].lat);
+        const lon = Number(result[0].lon);
+        if(searchMarker !== null){
+          map.removeLayer(searchMarker);
+        }
+        map.setView([lat, lon],14);
+        searchMarker = L.marker([lat,lon]).addTo(map);
+        searchMarker.bindPopup(`<b>${name}</b>`).openPopup();
+      }
+
+      // 等待地图就绪，添加乌兰夫纪念馆标记
+      waitMapInit(()=>{
+        L.marker([40.8211, 111.7423]).addTo(map)
+        .bindPopup("<b>乌兰夫纪念馆</b><br>仪光赤心实践队到访");
+      });
+    </script>
+
+    <!-- 原有模块脚本，保持在后面不动 -->
     <script type="text/javascript" src="./config/config.js"></script>
     <script type="module" src="./js/index.js"></script>
     <script type="module" src="./js/navigator.js"></script>
