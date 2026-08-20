@@ -539,12 +539,14 @@ class Carousel {
   }
 }
 
-// 创建全局轮播图实例
 const carousel = new Carousel();
-// 将map暴露到全局，供html中的搜索脚本使用
+
+// allPoints全部挂载到window全局
 window.mapInstance = map;
+window.allPoints = allPoints;
 document.dispatchEvent(new CustomEvent('mapReady',{
   detail:{
     mapObj: map
   }
 }));
+console.log("✅全局挂载完成，allPoints长度：", allPoints.length);
