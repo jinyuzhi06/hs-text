@@ -68,18 +68,13 @@
     <!-- =========搜索功能JS全局脚本========= -->
     <script>
       let searchMarker = null;
-      let map;
+      let map = null;
 
-      // 等待地图对象完成初始化之后
-      function waitMapInit(cb) {
-        const timer = setInterval(()=>{
-          if(window.mapInstance && window.allPoints){
-            map = window.mapInstance;
-            clearInterval(timer);
-            cb();
-          }
-        },200);
-      }
+      // 监听模块脚本派发的地图就绪事件
+      document.addEventListener('mapReady', (e)=>{
+        map = e.detail.mapObj;
+        console.log("地图已经就绪");
+      });
 
       // 搜索定位函数（全局，给onclick调用）
       async function searchPlace(){
@@ -97,7 +92,7 @@
         const spotList = window.allPoints;
         const findSpot = spotList.find(item=> item.title.includes(name));
         if(findSpot){
-          // 移除之前外部搜索的marker
+          // 清除外部搜索出来的临时marker
           if(searchMarker !== null){
             map.removeLayer(searchMarker);
             searchMarker = null;
@@ -106,7 +101,7 @@
           const lng = findSpot._lng;
           map.setView([lat, lng],12,{animate:true});
           const key = `${lat},${lng}`;
-          if(window.markersMap[key]){
+          if(window.markersMap && window.markersMap[key]){
             window.markersMap[key].openPopup();
           }
           return;
@@ -133,10 +128,6 @@
           alert("网络搜索失败，请尝试本地已收录景点");
         }
       }
-
-      waitMapInit(()=>{
-        // 地图就绪回调，目前无额外标记
-      });
     </script>
 
     <!-- 原有模块脚本，保持在后面不动 -->
