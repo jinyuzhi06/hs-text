@@ -541,3 +541,5 @@ class Carousel {
 
 // 创建全局轮播图实例
 const carousel = new Carousel();
+// 将map暴露到全局，供html中的搜索脚本使用
+window.mapInstance = map;
