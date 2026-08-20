@@ -543,3 +543,8 @@ class Carousel {
 const carousel = new Carousel();
 // 将map暴露到全局，供html中的搜索脚本使用
 window.mapInstance = map;
+document.dispatchEvent(new CustomEvent('mapReady',{
+  detail:{
+    mapObj: map
+  }
+}));
