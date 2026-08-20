@@ -550,3 +550,88 @@ document.dispatchEvent(new CustomEvent('mapReady',{
   }
 }));
 console.log("✅全局挂载完成，allPoints长度：", allPoints.length);
+
+// ==========模糊搜索下拉候选功能==========
+const searchInput = document.getElementById('searchInput');
+const searchSuggest = document.getElementById('searchSuggest');
+
+/**
+ * 模糊匹配点位：匹配标题title、location地点
+ * @param {string} keyword 输入关键词
+ */
+function getMatchPoints(keyword) {
+  if (!keyword.trim()) return [];
+  const kw = keyword.toLowerCase();
+  return window.allPoints.filter(item => {
+    return item.title.toLowerCase().includes(kw) || item.location.toLowerCase().includes(kw);
+  });
+}
+
+// 输入框实时输入事件
+searchInput.addEventListener('input', function () {
+  const text = this.value;
+  const matchList = getMatchPoints(text);
+  searchSuggest.innerHTML = '';
+
+  if (matchList.length === 0 || text.trim() === '') {
+    searchSuggest.style.display = 'none';
+    return;
+  }
+
+  // 渲染下拉每一条候选项
+  matchList.forEach(pt => {
+    const div = document.createElement('div');
+    div.innerText = pt.title;
+    div.style.padding = '8px 10px';
+    div.style.cursor = 'pointer';
+    div.style.borderBottom = '1px solid #eee';
+    div.onmouseover = () => div.style.background = "#e8f4ff";
+    div.onmouseout = () => div.style.background = "#fff";
+
+    // 点击候选项：地图跳转 + 打开弹窗
+    div.onclick = () => {
+      searchInput.value = pt.title;
+      searchSuggest.style.display = 'none';
+      const lat = pt._lat;
+      const lng = pt._lng;
+      map.closePopup();
+      map.setView([lat, lng], DEFAULT_ZOOM, {
+        animate: true,
+        duration: 0.5
+      });
+      map.once("moveend", function () {
+        openPopupByCoords(lat, lng);
+      });
+    };
+    searchSuggest.appendChild(div);
+  });
+  searchSuggest.style.display = 'block';
+});
+
+// 点击页面空白关闭下拉
+document.addEventListener('click', (e) => {
+  if (!searchInput.contains(e.target) && !searchSuggest.contains(e.target)) {
+    searchSuggest.style.display = 'none';
+  }
+});
+
+// 原有搜索按钮点击兼容（完整名称搜索）
+document.getElementById('searchBtn').addEventListener('click', function () {
+  const kw = searchInput.value.trim().toLowerCase();
+  const find = window.allPoints.find(p => p.title.toLowerCase() === kw);
+  searchSuggest.style.display = 'none';
+  if (find) {
+    const lat = find._lat;
+    const lng = find._lng;
+    map.closePopup();
+    map.setView([lat, lng], DEFAULT_ZOOM, {animate:true, duration:0.5});
+    map.once("moveend", ()=> openPopupByCoords(lat,lng));
+  }
+});
+
+// 回车触发搜索按钮
+searchInput.addEventListener('keydown', function(e){
+  if(e.key === "Enter"){
+    document.getElementById('searchBtn').click();
+  }
+})
