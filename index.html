@@ -65,15 +65,15 @@
       </div>
     </div>
 
-    <!-- =========新增搜索功能JS全局脚本========= -->
+    <!-- =========搜索功能JS全局脚本========= -->
     <script>
       let searchMarker = null;
       let map;
 
-      // 等待地图对象完成初始化之后，再添加自定义标记
+      // 等待地图对象完成初始化之后
       function waitMapInit(cb) {
         const timer = setInterval(()=>{
-          if(window.mapInstance){
+          if(window.mapInstance && window.allPoints){
             map = window.mapInstance;
             clearInterval(timer);
             cb();
@@ -92,27 +92,50 @@
           alert("请输入景点名称");
           return;
         }
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1&countrycodes=cn`;
-        const resp = await fetch(url);
-        const result = await resp.json();
-        if(result.length <= 0){
-          alert("未找到该地点，可手动添加标记");
+
+        // 优先在本地景点库匹配
+        const spotList = window.allPoints;
+        const findSpot = spotList.find(item=> item.title.includes(name));
+        if(findSpot){
+          // 移除之前外部搜索的marker
+          if(searchMarker !== null){
+            map.removeLayer(searchMarker);
+            searchMarker = null;
+          }
+          const lat = findSpot._lat;
+          const lng = findSpot._lng;
+          map.setView([lat, lng],12,{animate:true});
+          const key = `${lat},${lng}`;
+          if(window.markersMap[key]){
+            window.markersMap[key].openPopup();
+          }
           return;
         }
-        const lat = Number(result[0].lat);
-        const lon = Number(result[0].lon);
-        if(searchMarker !== null){
-          map.removeLayer(searchMarker);
+
+        // 本地库没找到，调用 nominatim 外部地理搜索
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1&countrycodes=cn`;
+        try{
+          const resp = await fetch(url);
+          const result = await resp.json();
+          if(result.length <= 0){
+            alert("未找到该地点");
+            return;
+          }
+          const lat = Number(result[0].lat);
+          const lon = Number(result[0].lon);
+          if(searchMarker !== null){
+            map.removeLayer(searchMarker);
+          }
+          map.setView([lat, lon],14);
+          searchMarker = L.marker([lat,lon]).addTo(map);
+          searchMarker.bindPopup(`<b>${name}</b>`).openPopup();
+        }catch(err){
+          alert("网络搜索失败，请尝试本地已收录景点");
         }
-        map.setView([lat, lon],14);
-        searchMarker = L.marker([lat,lon]).addTo(map);
-        searchMarker.bindPopup(`<b>${name}</b>`).openPopup();
       }
 
-      // 等待地图就绪，添加乌兰夫纪念馆标记
       waitMapInit(()=>{
-        L.marker([40.8211, 111.7423]).addTo(map)
-        .bindPopup("<b>乌兰夫纪念馆</b><br>仪光赤心实践队到访");
+        // 地图就绪回调，目前无额外标记
       });
     </script>
 
