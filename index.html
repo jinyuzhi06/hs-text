@@ -24,10 +24,26 @@
   </head>
 
   <body>
-    <!-- =========新增搜索框UI========= -->
+    <!-- =========新增搜索框UI（已加入下拉候选容器）========= -->
     <div style="position:absolute; z-index:999; top:12px; left:12px; background:#ffffff; padding:8px; border-radius:6px; box-shadow:0 1px 6px #aaa;">
-      <input id="searchInput" placeholder="搜索红色景点，例：乌兰夫纪念馆" onkeydown="if(event.key==='Enter')searchPlace()" style="width:240px;padding:5px;border:1px solid #ccc;border-radius:4px;">
-      <button onclick="searchPlace()" style="padding:5px 10px;cursor:pointer;">搜索定位</button>
+      <div style="position:relative; display:inline-block;">
+        <input id="searchInput" placeholder="搜索红色景点，例：乌兰夫纪念馆" style="width:240px;padding:5px;border:1px solid #ccc;border-radius:4px;">
+        <button id="searchBtn" style="padding:5px 10px;cursor:pointer;">搜索定位</button>
+        <!--搜索下拉候选框-->
+        <div id="searchSuggest" style="
+            position:absolute;
+            top:100%;
+            left:0;
+            z-index:9999;
+            background:#ffffff;
+            border:1px solid #cccccc;
+            width:240px;
+            max-height:220px;
+            overflow-y:auto;
+            display:none;
+        ">
+        </div>
+      </div>
     </div>
 
     <div id="map"></div>
@@ -65,7 +81,7 @@
       </div>
     </div>
 
-    <!-- =========搜索功能JS全局脚本========= -->
+    <!-- =========搜索功能JS全局脚本（外部nominatim网络搜索，保留原样）========= -->
     <script>
       let searchMarker = null;
       let map = null;
@@ -76,7 +92,7 @@
         console.log("地图已经就绪");
       });
 
-      // 搜索定位函数（全局，给onclick调用）
+      // 搜索定位函数（全局，用于外部nominatim地理搜索）
       async function searchPlace(){
         if(!map){
           alert("地图尚未加载完成，请稍后再试");
