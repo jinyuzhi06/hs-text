@@ -16,8 +16,8 @@ window.openPopupByCoords = function (lat, lng) {
 };
 
 function setMapHeight() {
-  let map = document.getElementById("map");
-  map.style.height = window.innerHeight + "px";
+  let mapDom = document.getElementById("map");
+  mapDom.style.height = window.innerHeight + "px";
 }
 
 setMapHeight();
