@@ -556,15 +556,25 @@ const searchInput = document.getElementById('searchInput');
 const searchSuggest = document.getElementById('searchSuggest');
 
 /**
- * 模糊匹配点位：匹配标题title、location地点
+ * 模糊匹配点位：标题 / 地点location / tag标签数组
  * @param {string} keyword 输入关键词
  */
 function getMatchPoints(keyword) {
   if (!keyword.trim()) return [];
   const kw = keyword.toLowerCase();
-  return window.allPoints.filter(item => {
-    return item.title.toLowerCase().includes(kw) || item.location.toLowerCase().includes(kw);
+  const result = window.allPoints.filter(item => {
+    // 匹配标题、地点
+    const matchTitle = item.title.toLowerCase().includes(kw);
+    const matchLocation = item.location.toLowerCase().includes(kw);
+    // 匹配tag标签数组（字段是单数 tag）
+    let matchTag = false;
+    if(Array.isArray(item.tag)){
+      matchTag = item.tag.some(t => t.toLowerCase().includes(kw));
+    }
+    return matchTitle || matchLocation || matchTag;
   });
+  // 最多返回8条，避免下拉列表过长
+  return result.slice(0,8);
 }
 
 // 输入框实时输入事件
